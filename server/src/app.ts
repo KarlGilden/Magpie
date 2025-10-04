@@ -55,10 +55,11 @@ app.post('/api/process-image', uploadSingle, handleUploadError, async (req: Requ
         error: 'No image file uploaded. Please provide an image file using field name "image".'
       });
     }
-
+    console.log("processing image");
     const result = await documentAIService.processDocument(req.file);
     
     if (result.success) {
+      console.log(result.data?.text);
       res.json({
         ...result,
         imageInfo: {
