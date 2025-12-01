@@ -1,0 +1,186 @@
+import OpenAI from 'openai';
+import {
+  OpenAIConfig,
+  ServiceStatus,
+  ValidationResult,
+  ProcessTextFunction,
+  GetStatusFunction,
+  ValidateConfigFunction
+} from '../types/openai.types';
+
+// Global client instance
+let client: OpenAI | null = null;
+
+/**
+ * Initialize the OpenAI client
+ */
+const initializeClient = (config: OpenAIConfig): OpenAI => {
+  if (client) {
+    return client;
+  }
+
+  if (!config.apiKey) {
+    throw new Error('OpenAI API key is required');
+  }
+
+  client = new OpenAI({
+    apiKey: config.apiKey,
+  });
+
+  return client;
+};
+
+/**
+ * Validate OpenAI configuration
+ */
+export const validateConfig: ValidateConfigFunction = (config: OpenAIConfig): ValidationResult => {
+  const errors: string[] = [];
+
+  if (!config.apiKey) {
+    errors.push('API key is required');
+  }
+
+  if (!config.model) {
+    errors.push('Model is required');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+/**
+ * Get service status
+ */
+export const getStatus: GetStatusFunction = async (config: OpenAIConfig): Promise<ServiceStatus> => {
+  try {
+    const validation = validateConfig(config);
+    if (!validation.isValid) {
+      return {
+        status: 'error',
+        message: `Configuration validation failed: ${validation.errors.join(', ')}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    // Test the connection by making a simple request
+    const openai = initializeClient(config);
+    await openai.models.list();
+
+    return {
+      status: 'healthy',
+      message: 'OpenAI service is operational',
+      timestamp: new Date().toISOString()
+    };
+  } catch (error) {
+    return {
+      status: 'error',
+      message: `OpenAI service error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      timestamp: new Date().toISOString()
+    };
+  }
+};
+
+/**
+ * Process text using OpenAI Chat Completions API
+ */
+export const processText: ProcessTextFunction = async (
+  text: string,
+  language: string,
+  config: OpenAIConfig
+): Promise<string | undefined> => {
+  try {
+
+    // Initialize client
+    const openai = initializeClient(config);
+
+    const prompt = `
+        You are a linguist. Analyze the following ${language} text:
+        "${text}"
+        Split it into useful phrases and words for a learner.
+        Return JSON with:
+            - phrase/word
+            - translation
+            - part_of_speech
+            - example_sentence
+        `;
+
+    const completion = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.2,
+    });
+
+    if(!completion.choices) return;
+
+    return completion.choices[0]?.message.content ?? undefined;
+  } catch (error) {
+    throw new Error(`OpenAI API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+};
+
+/**
+ * Generate a completion for a single prompt
+ */
+// export const generateCompletion = async (
+//   prompt: string,
+//   config: OpenAIConfig,
+//   options?: {
+//     maxTokens?: number;
+//     temperature?: number;
+//     model?: string;
+//   }
+// ): Promise<string> => {
+//   const request: ChatCompletionRequest = {
+//     messages: [
+//       {
+//         role: 'user',
+//         content: prompt
+//       }
+//     ],
+//     maxTokens: options?.maxTokens || 1000,
+//     temperature: options?.temperature || 0.7,
+//     model: options?.model || config.model || 'gpt-3.5-turbo'
+//   };
+
+//   const response = await processText(request, config);
+  
+//   if (response.choices.length === 0) {
+//     throw new Error('No response generated');
+//   }
+
+//   return response.choices[0]?.message.content || '';
+// };
+
+/**
+ * Analyze text content (useful for processing OCR results)
+ */
+// export const analyzeText = async (
+//   text: string,
+//   config: OpenAIConfig,
+//   analysisType: 'summarize' | 'extract' | 'classify' | 'translate' = 'summarize',
+//   targetLanguage?: string
+// ): Promise<string> => {
+//   let prompt = '';
+
+//   switch (analysisType) {
+//     case 'summarize':
+//       prompt = `Please provide a concise summary of the following text:\n\n${text}`;
+//       break;
+//     case 'extract':
+//       prompt = `Please extract the key information from the following text:\n\n${text}`;
+//       break;
+//     case 'classify':
+//       prompt = `Please classify the following text and explain what type of document or content it is:\n\n${text}`;
+//       break;
+//     case 'translate':
+//       const language = targetLanguage || 'English';
+//       prompt = `Please translate the following text to ${language}:\n\n${text}`;
+//       break;
+//     default:
+//       prompt = `Please analyze the following text:\n\n${text}`;
+//   }
+
+//   return await generateCompletion(prompt, config);
+// };

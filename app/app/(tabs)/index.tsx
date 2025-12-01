@@ -6,8 +6,33 @@ import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
+import { useEffect, useState } from 'react';
 
 export default function HomeScreen() {
+  const db = useSQLiteContext();
+  const [version, setVersion] = useState('');
+  const [testData, setTestData] = useState('');
+
+  useEffect(() => {
+    async function setup() {
+      const result = await db.getFirstAsync<{ 'sqlite_version()': string }>(
+        'SELECT sqlite_version()'
+      );
+      if(!result) return;
+
+      setVersion(result['sqlite_version()']);
+    }
+
+    async function getTestData() {
+      const result = await db.getFirstAsync<{ value: string }>('SELECT * FROM test');
+      if(!result) return;
+
+      setTestData(result.value ?? 'Not found');
+    }
+    setup();
+    getTestData();
+  }, []);
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -18,11 +43,13 @@ export default function HomeScreen() {
         />
       }>
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
+        <ThemedText type="title">Welcome! SQL: {version}</ThemedText>
         <HelloWave />
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>
+        <ThemedText type="default">test data: {testData}</ThemedText>
+
         <ThemedText>
           Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
           Press{' '}

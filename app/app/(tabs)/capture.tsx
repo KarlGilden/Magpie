@@ -1,6 +1,6 @@
 import { Image } from 'expo-image';
 import { Button, Platform, StyleSheet, ScrollView, View, Modal, Text, TouchableOpacity } from 'react-native';
-
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Collapsible } from '@/components/ui/collapsible';
 import { ExternalLink } from '@/components/external-link';
 import { ThemedText } from '@/components/themed-text';
@@ -83,87 +83,99 @@ export default function CapturePage() {
     }
   };
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.content}>
-        <ThemedText
-          type="title"
-          style={styles.title}>
-          Capture
-        </ThemedText>
-        
-        <View style={styles.buttonContainer}>
-          <Button title="Take Photo" onPress={() => pickImage(true)} />
-          <Button title="Choose from Gallery" onPress={() => pickImage(false)} />
+    <SafeAreaProvider>
+      <SafeAreaView style={styles.centeredView}>
+      <ScrollView style={styles.container}>
+        <View style={styles.content}>
+          <ThemedText
+            type="title"
+            style={styles.title}>
+            Capture
+          </ThemedText>
+          
+          <View style={styles.buttonContainer}>
+            <Button title="Take Photo" onPress={() => pickImage(true)} />
+            <Button title="Choose from Gallery" onPress={() => pickImage(false)} />
+          </View>
+          
+          {/* Status Display */}
+          {isLoading && (
+            <View style={styles.statusContainer}>
+              <IconSymbol name="arrow.triangle.2.circlepath" size={48} color="#007AFF" />
+              <ThemedText style={styles.statusText}>Processing image...</ThemedText>
+            </View>
+          )}
+          
+          {!isLoading && apiStatus === 'success' && (
+            <View style={styles.statusContainer}>
+              <IconSymbol name="checkmark.circle.fill" size={48} color="#34C759" />
+              <ThemedText style={styles.statusText}>Success!</ThemedText>
+            </View>
+          )}
+          
+          {!isLoading && apiStatus === 'error' && (
+            <View style={styles.statusContainer}>
+              <IconSymbol name="xmark.circle.fill" size={48} color="#FF3B30" />
+              <ThemedText style={styles.statusText}>Failed to process</ThemedText>
+            </View>
+          )}
         </View>
-        
-        {/* Status Display */}
-        {isLoading && (
-          <View style={styles.statusContainer}>
-            <IconSymbol name="arrow.triangle.2.circlepath" size={48} color="#007AFF" />
-            <ThemedText style={styles.statusText}>Processing image...</ThemedText>
-          </View>
-        )}
-        
-        {!isLoading && apiStatus === 'success' && (
-          <View style={styles.statusContainer}>
-            <IconSymbol name="checkmark.circle.fill" size={48} color="#34C759" />
-            <ThemedText style={styles.statusText}>Success!</ThemedText>
-          </View>
-        )}
-        
-        {!isLoading && apiStatus === 'error' && (
-          <View style={styles.statusContainer}>
-            <IconSymbol name="xmark.circle.fill" size={48} color="#FF3B30" />
-            <ThemedText style={styles.statusText}>Failed to process</ThemedText>
-          </View>
-        )}
-      </View>
-
-      {/* Success Modal */}
-      <Modal
-        visible={showModal}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setShowModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <ThemedText type="subtitle" style={styles.modalTitle}>
-                Processing ssResults
-              </ThemedText>
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowModal(false)}
-              >
-                <IconSymbol name="xmark" size={24} color="#666" />
-              </TouchableOpacity>
+        {/* Success Modal */}
+        <Modal
+          visible={showModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowModal(false)}
+        >
+          <SafeAreaView style={{ flex: 1, backgroundColor: "transparent" }}>
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                  <ThemedText type="subtitle" style={styles.modalTitle}>
+                    Processing ssResults
+                  </ThemedText>
+                  <TouchableOpacity
+                    style={styles.closeButton}
+                    onPress={() => setShowModal(false)}
+                  >
+                    <IconSymbol name="xmark" size={24} color="#666" />
+                  </TouchableOpacity>
+                </View>
+                
+                <ScrollView style={styles.dataContainer}>
+                  <Text style={styles.dataText}>
+                    {apiData ? apiData.data?.text : 'No data available'}
+                  </Text>
+                </ScrollView>
+                
+                <View style={styles.modalFooter}>
+                  <TouchableOpacity
+                    style={styles.dismissButton}
+                    onPress={() => setShowModal(false)}
+                  >
+                    <ThemedText style={styles.dismissButtonText}>Close</ThemedText>
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
-            
-            <View style={styles.dataContainer}>
-              <Text style={styles.dataText}>
-                {apiData ? apiData.data?.text : 'No data available'}
-              </Text>
-            </View>
-            
-            <View style={styles.modalFooter}>
-              <TouchableOpacity
-                style={styles.dismissButton}
-                onPress={() => setShowModal(false)}
-              >
-                <ThemedText style={styles.dismissButtonText}>Close</ThemedText>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </ScrollView>
+          </SafeAreaView>
+          
+        </Modal>
+      </ScrollView>
+      </SafeAreaView>
+    </SafeAreaProvider>
+    
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  centeredView: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   content: {
     flex: 1,
@@ -192,22 +204,21 @@ const styles = StyleSheet.create({
   },
   // Modal styles
   modalOverlay: {
-    flex: 1,
+    flex: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 12,
     padding: 20,
-    width: '90%',
-    maxHeight: '80%',
+    width: '100%',
+    maxHeight: '100%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
-    elevation: 5,
+    elevation: 5
   },
   modalHeader: {
     flexDirection: 'row',
@@ -239,11 +250,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   dataContainer: {
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
-    padding: 15,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    borderColor: 'fff',
     minHeight: 100,
   },
   dataText: {
@@ -253,6 +261,7 @@ const styles = StyleSheet.create({
   },
   modalFooter: {
     alignItems: 'center',
+    padding: 10
   },
   dismissButton: {
     backgroundColor: '#007AFF',

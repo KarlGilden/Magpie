@@ -4,8 +4,10 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
 import { createDocumentAIService } from './services/documentai.service';
+import { processText, getStatus as getOpenAIStatus } from './services/openai.service';
 import { uploadSingle, handleUploadError } from './middleware/upload.middleware';
 import { DocumentAIConfig } from './types/documentai.types';
+import { OpenAIConfig } from './types/openai.types';
 
 // Load environment variables
 dotenv.config();
@@ -23,6 +25,13 @@ const documentAIConfig: DocumentAIConfig = {
 
 const documentAIService = createDocumentAIService(documentAIConfig);
 
+// Initialize OpenAI service
+const openAIConfig: OpenAIConfig = {
+  apiKey: process.env['OPENAI_API_KEY'] || '',
+  model: process.env['OPENAI_MODEL'] || 'gpt-3.5-turbo',
+  organization: process.env['OPENAI_ORGANIZATION'] || ''
+};
+
 // Middleware
 app.use(helmet()); // Security headers
 app.use(cors()); // Enable CORS
@@ -31,7 +40,7 @@ app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
 
 // Routes
-app.get('/', (req: Request, res: Response) => {
+app.get('/', (_req: Request, res: Response) => {
   res.json({
     message: 'Welcome to WordCapture API',
     version: '1.0.0',
@@ -39,7 +48,7 @@ app.get('/', (req: Request, res: Response) => {
   });
 });
 
-app.get('/health', (req: Request, res: Response) => {
+app.get('/health', (_req: Request, res: Response) => {
   res.json({
     status: 'OK',
     timestamp: new Date().toISOString()
@@ -80,15 +89,83 @@ app.post('/api/process-image', uploadSingle, handleUploadError, async (req: Requ
   }
 });
 
-app.get('/api/documentai/status', async (req: Request, res: Response) => {
+// OpenAI endpoints
+app.post('/api/openai/chat', async (req: Request, res: Response) => {
   try {
-    const status = await documentAIService.getStatus();
+    const { text, language } = req.body;
+    
+    if (!text) {
+      return res.status(400).json({
+        success: false,
+        error: 'No text supplied'
+      });
+    }
+
+    const result = await processText(text, language, openAIConfig);
+
+    if(!result){
+      return res.status(400).json({
+        success: false,
+        error: "Failed to generate response"
+      })
+    }
+
+    console.log(JSON.parse(result));
+
+    res.json({
+      success: true,
+      data: JSON.parse(result),
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('OpenAI chat error:', error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'OpenAI API error'
+    });
+  }
+});
+
+// app.post('/api/openai/analyze', async (req: Request, res: Response) => {
+//   try {
+//     const { text, analysisType = 'summarize', targetLanguage } = req.body;
+    
+//     if (!text || typeof text !== 'string') {
+//       return res.status(400).json({
+//         success: false,
+//         error: 'Text content is required'
+//       });
+//     }
+
+//     const result = await analyzeText(text, openAIConfig, analysisType, targetLanguage);
+    
+//     res.json({
+//       success: true,
+//       data: {
+//         text: result,
+//         analysisType,
+//         originalText: text
+//       },
+//       timestamp: new Date().toISOString()
+//     });
+//   } catch (error) {
+//     console.error('OpenAI analyze error:', error);
+//     res.status(500).json({
+//       success: false,
+//       error: error instanceof Error ? error.message : 'OpenAI analysis error'
+//     });
+//   }
+// });
+
+app.get('/api/openai/status', async (_req: Request, res: Response) => {
+  try {
+    const status = await getOpenAIStatus(openAIConfig);
     res.json(status);
   } catch (error) {
-    console.error('Status check error:', error);
+    console.error('OpenAI status check error:', error);
     res.status(500).json({
       status: 'error',
-      error: 'Failed to check Document AI service status'
+      error: 'Failed to check OpenAI service status'
     });
   }
 });
@@ -102,7 +179,7 @@ app.use('*', (req: Request, res: Response) => {
 });
 
 // Error handler
-app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
   console.error(err.stack);
   res.status(500).json({
     error: 'Something went wrong!',
