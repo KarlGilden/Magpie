@@ -59,7 +59,7 @@ export default function CapturePage() {
         type: "image/jpeg",
       } as any);
 
-      const response = await fetch("http://192.168.1.22:3000/api/process-image", {
+      const response = await fetch("http://192.168.1.22:3000/api/documentai/process-image", {
         method: "POST",
         body: formData,
         headers: { "Content-Type": "multipart/form-data" },

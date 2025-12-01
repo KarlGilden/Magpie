@@ -95,25 +95,66 @@ export const processText: ProcessTextFunction = async (
     // Initialize client
     const openai = initializeClient(config);
 
+    const schema = {
+      type: "object",
+      properties: {
+        words: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              translation: { type: "array", items: { type: "string" } }
+            },
+            required: ["text", "translation"]
+          }
+        },
+        phrases: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              text: { type: "string" },
+              translation: { type: "array", items: { type: "string" } }
+            },
+            required: ["text", "translation"]
+          }
+        }
+      },
+      required: ["words", "phrases"]
+    };
+
     const prompt = `
         You are a linguist. Analyze the following ${language} text:
         "${text}"
         Split it into useful phrases and words for a learner.
-        Return JSON with:
-            - phrase/word
-            - translation
-            - part_of_speech
-            - example_sentence
-        `;
+        Return:
+        - A list of unique single words that appear in the text.
+        - A list of useful multi-word phrases that are meaningful for learners. Include full sentences as well as shorter phrases if they are meaningful.
+        - For each word or phrase, return a translation into English.
+        - Avoid duplicates.
+        - Do not include names, places, or numbers unless they are linguistically relevant.
+
+        Only use information from the input text.  
+        Translate accurately and concisely.
+        Return the response in JSON format.
+      `;
 
     const completion = await openai.chat.completions.create({
-        model: "gpt-3.5-turbo",
+        model: "gpt-4.1-2025-04-14",
         messages: [{ role: "user", content: prompt }],
         temperature: 0.2,
+        response_format: { 
+          type: "json_schema", 
+          json_schema: {
+            name: "WordCaptureResponse",
+            schema
+          } 
+        },
     });
 
     if(!completion.choices) return;
-
+    console.log(completion.choices[0]?.message.content);
     return completion.choices[0]?.message.content ?? undefined;
   } catch (error) {
     throw new Error(`OpenAI API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
