@@ -7,6 +7,7 @@ import {
   GetStatusFunction,
   ValidateConfigFunction
 } from '../types/openai.types';
+import { WordCaptureResponse } from '../types/app.types';
 
 // Global client instance
 let client: OpenAI | null = null;
@@ -89,7 +90,7 @@ export const processText: ProcessTextFunction = async (
   text: string,
   language: string,
   config: OpenAIConfig
-): Promise<string | undefined> => {
+): Promise<WordCaptureResponse | undefined> => {
   try {
 
     // Initialize client
@@ -155,7 +156,10 @@ export const processText: ProcessTextFunction = async (
 
     if(!completion.choices) return;
     console.log(completion.choices[0]?.message.content);
-    return completion.choices[0]?.message.content ?? undefined;
+    
+    const response: WordCaptureResponse = JSON.parse(completion.choices[0]?.message.content ?? "{}");
+    return response;
+
   } catch (error) {
     throw new Error(`OpenAI API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }

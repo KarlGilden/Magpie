@@ -2,6 +2,8 @@
  * OpenAI Service Types
  */
 
+import { WordCaptureResponse } from "./app.types";
+
 export interface OpenAIConfig {
   apiKey: string;
   model?: string;
@@ -71,7 +73,7 @@ export type ProcessTextFunction = (
   text: string,
   language: string,
   config: OpenAIConfig
-) => Promise<string | undefined>;
+) => Promise<WordCaptureResponse | undefined>;
 
 export type GetStatusFunction = (
   config: OpenAIConfig

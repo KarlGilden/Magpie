@@ -9,6 +9,7 @@ import { IconSymbol } from '@/components/ui/icon-symbol';
 import { Fonts } from '@/constants/theme';
 import { useState } from 'react';
 import * as ImagePicker from "expo-image-picker";
+import { WordCaptureResponse } from '@/types/capture';
 
 export default function CapturePage() {
   const [image, setImage] = useState<string | null>(null);
@@ -16,6 +17,7 @@ export default function CapturePage() {
   const [apiStatus, setApiStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [apiData, setApiData] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
+  const [language, setLanguage] = useState<string>('es');
 
   const pickImage = async (useCamera: boolean) => {
     // Ask for permissions
@@ -59,12 +61,12 @@ export default function CapturePage() {
         type: "image/jpeg",
       } as any);
 
-      const response = await fetch("http://192.168.1.22:3000/api/documentai/process-image", {
+      const response = await fetch(`http://192.168.1.22:3000/api/capture?language=${language}`, {
         method: "POST",
         body: formData,
         headers: { "Content-Type": "multipart/form-data" },
       });
-      
+      console.log(response)
        if (response.ok) {
          const data = await response.json();
          setApiData(data);
@@ -72,7 +74,8 @@ export default function CapturePage() {
          setApiStatus('success');
          setShowModal(true);
        } else {
-        console.error("API Error: ", response.status, response.statusText);
+        const data = await response?.json();
+        console.error("API Error: ", response.status, data.error ?? response.statusText);
         setApiStatus('error');
       }
     } catch (error) {
@@ -132,7 +135,7 @@ export default function CapturePage() {
               <View style={styles.modalContent}>
                 <View style={styles.modalHeader}>
                   <ThemedText type="subtitle" style={styles.modalTitle}>
-                    Processing ssResults
+                    Words
                   </ThemedText>
                   <TouchableOpacity
                     style={styles.closeButton}
@@ -144,7 +147,7 @@ export default function CapturePage() {
                 
                 <ScrollView style={styles.dataContainer}>
                   <Text style={styles.dataText}>
-                    {apiData ? apiData.data?.text : 'No data available'}
+                    {apiData ? apiData.data : 'No data available'}
                   </Text>
                 </ScrollView>
                 
