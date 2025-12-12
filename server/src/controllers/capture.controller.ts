@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { ProcessDocumentFunction } from '../types/documentai.types';
 import { processText } from '../services/openai.service';
 import { OpenAIConfig } from '../types/openai.types';
+import { WordCaptureResponse } from '../types/app.types';
 
 /**
  * Capture Controller
@@ -17,25 +18,23 @@ export class CaptureController {
    * POST /api/capture
    * Process an image through DocumentAI to extract text, then process that text with OpenAI
    */
-  async capture(req: Request, res: Response): Promise<void> {
+  async capture(req: Request, res: Response): Promise<Response<WordCaptureResponse>> {
     console.log(req.file)
     try {
       if (!req.file) {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           error: 'No image file uploaded. Please provide an image file using field name "image".'
         });
-        return;
       }
 
       const language = req.query['language'] as string;
       console.log(language)
       if (!language) {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           error: 'Language parameter is required'
         });
-        return;
       }
 
       console.log("Processing image with DocumentAI...");
@@ -44,12 +43,11 @@ export class CaptureController {
       const documentResult = await this.processDocument(req.file);
       
       if (!documentResult.success || !documentResult.data?.text) {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           error: documentResult.error || 'Failed to extract text from image',
           documentAI: documentResult
         });
-        return;
       }
 
       const extractedText = documentResult.data.text;
@@ -60,7 +58,7 @@ export class CaptureController {
       const openAIResult = await processText(extractedText, language, this.openAIConfig);
 
       if (!openAIResult) {
-        res.status(400).json({
+        return res.status(400).json({
           success: false,
           error: "Failed to generate response from OpenAI",
           documentAI: {
@@ -68,28 +66,14 @@ export class CaptureController {
             extractedText: extractedText
           }
         });
-        return;
       }
 
       // Return combined result
-      res.json({
-        success: true,
-        data: openAIResult,
-        metadata: {
-          extractedText: extractedText,
-          language: language,
-          documentAI: documentResult.metadata,
-          imageInfo: {
-            originalName: req.file.originalname,
-            size: req.file.size,
-            mimeType: req.file.mimetype
-          },
-          timestamp: new Date().toISOString()
-        }
-      });
+      return res.status(200).json(openAIResult);
+
     } catch (error) {
       console.error('Capture error:', error);
-      res.status(500).json({
+      return res.status(500).json({
         success: false,
         error: error instanceof Error ? error.message : 'Internal server error during capture processing'
       });
