@@ -1,29 +1,31 @@
-import { useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useFetch } from "../useFetch";
-import type { FetchVariables } from "../useFetch";
+import type { WordCaptureResponse } from "../types/capture.types";
+import QueryKeys from "../queryKeys";
 
 interface CaptureVariables {
-  image: File;
-  language: string;
+  image?: File | null;
+  language?: string;
 }
 
-export const useCapture = () => {
-    return useMutation({
-        mutationFn: async ({ image, language }: CaptureVariables) => {
+export const useCapture = ({ image, language }: CaptureVariables) => {
+    const fetch = useFetch();
+
+    return useQuery<WordCaptureResponse>({
+        queryFn: () => {
+            if(!image) throw new Error("No image selected");
+
             const formData = new FormData();
             formData.append('image', image);
 
-            const variables: FetchVariables = {
-                body: formData,
-            };
-
-            const fetchFn = useFetch({
+            return fetch({
                 path: `/api/capture?language=${language}`,
                 method: 'POST',
                 contentType: 'multipart/form-data',
+                body: formData
             });
-
-            return fetchFn(variables);
         },
+        queryKey: [QueryKeys.CAPTURE.ROOT(image ?? null, language ?? "")],
+        enabled: false
     });
 };

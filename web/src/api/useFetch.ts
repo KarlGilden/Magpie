@@ -7,9 +7,6 @@ export interface FetchConfig {
   method?: HttpMethod;
   contentType?: ContentType;
   baseURL?: string;
-}
-
-export interface FetchVariables {
   body?: unknown;
   headers?: Record<string, string>;
 }
@@ -19,11 +16,14 @@ export interface FetchVariables {
  * @param config - Configuration object with path, method, contentType, and baseURL
  * @returns A function that can be used with useQuery or useMutation
  */
-export const createFetchFunction = (config: FetchConfig) => {
-  const { path, method = 'GET', contentType = 'application/json' } = config;
-
-  return async (variables?: FetchVariables) => {
-    const { body, headers: additionalHeaders } = variables || {};
+export const useFetch = () => {
+  return async <T>({ 
+    path, 
+    method = 'GET', 
+    contentType = 'application/json', 
+    body, 
+    headers: additionalHeaders 
+  }: FetchConfig) => {
     
     const includeContentType = !!body && contentType !== 'multipart/form-data';
 
@@ -71,59 +71,3 @@ export const createFetchFunction = (config: FetchConfig) => {
 const buildUrl = (path: string) => {
     return import.meta.env.VITE_API_URL + path;
 };
-
-/**
- * Hook-like function that creates a fetch function for use with React Query
- * Can be used as queryFn or mutationFn
- * 
- * @example
- * // As queryFn (without variables)
- * const { data } = useQuery({
- *   queryKey: ['data'],
- *   queryFn: useFetch({
- *     path: '/api/data',
- *     method: 'GET',
- *   })
- * });
- * 
- * @example
- * // As queryFn (with variables from queryKey)
- * const { data } = useQuery({
- *   queryKey: ['data', id],
- *   queryFn: ({ queryKey }) => useFetch({
- *     path: `/api/data/${queryKey[1]}`,
- *     method: 'GET',
- *   })()
- * });
- * 
- * @example
- * // As mutationFn
- * const mutation = useMutation({
- *   mutationFn: useFetch({
- *     path: '/api/capture',
- *     method: 'POST',
- *     contentType: 'multipart/form-data',
- *   }),
- * });
- * 
- * mutation.mutate({ body: formData });
- * 
- * @example
- * // As mutationFn with path/query params
- * const mutation = useMutation({
- *   mutationFn: useFetch({
- *     path: '/api/capture/:language',
- *     method: 'POST',
- *     contentType: 'multipart/form-data',
- *   }),
- * });
- * 
- * mutation.mutate({ 
- *   pathParams: { language: 'es' },
- *   body: formData 
- * });
- */
-export const useFetch = (config: FetchConfig) => {
-  return createFetchFunction(config);
-};
-

@@ -5,5 +5,5 @@ export interface WordCaptureResponse {
 
 interface WordPhrase {
     text: string;
-    translations: string[];
+    translation: string[];
 }

@@ -1,13 +1,35 @@
-import { useState, useRef, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useRef, type ChangeEvent, type FormEvent, useEffect } from 'react';
 import { useCapture } from '../api/queries/useCapture';
+import Card from '../components/Card';
+import Spacer from '../components/util/Spacer';
+import Button from '../components/Button';
 
 const Capture = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [language, setLanguage] = useState<string>('es');
   const [preview, setPreview] = useState<string | null>(null);
+
+  const [acceptedWords, setAcceptedWords] = useState<string[]>([]);
+  const [acceptedPhrases, setAcceptedPhrases] = useState<string[]>([]);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const captureMutation = useCapture();
+  const { data: captureData, refetch: getCaptureData, isLoading: isCaptureDataLoading, isError: isCaptureDataError, error: captureDataError } = useCapture({
+    image: selectedFile,
+    language
+  });
+
+  useEffect(() => {
+    if(!captureData) return;
+
+    setAcceptedWords(captureData.words.map(word => {
+      return word.text;
+    }))
+
+    setAcceptedPhrases(captureData.phrases.map(phrase => {
+      return phrase.text;
+    }))
+  }, [captureData])
 
   const handleFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -36,10 +58,7 @@ const Capture = () => {
     }
 
     try {
-      await captureMutation.mutateAsync({
-        image: selectedFile,
-        language,
-      });
+      await getCaptureData();
     } catch (error) {
       console.error('Capture error:', error);
     }
@@ -73,6 +92,26 @@ const Capture = () => {
     }
   };
 
+  const handleAcceptSelection = () => {
+    
+  }
+
+  const toggleAcceptedWord = (word: string) => {
+    if(acceptedWords.includes(word)){
+      return setAcceptedWords(acceptedWords.filter(x => x !== word))
+    }
+
+    setAcceptedWords([...acceptedWords, word])
+  }
+
+  const toggleAcceptedPhrases = (phrase: string) => {
+    if(acceptedPhrases.includes(phrase)){
+      return setAcceptedPhrases(acceptedPhrases.filter(x => x !== phrase))
+    }
+
+    setAcceptedWords([...acceptedPhrases, phrase])
+  }
+
   return (
     <div className="space-y-8">
       <div className="space-y-4">
@@ -83,7 +122,7 @@ const Capture = () => {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="rounded-xl border border-border bg-card p-8 shadow-sm">
+        <Card size='xl'>
           {/* Language Selector */}
           <div className="mb-6">
             <label htmlFor="language" className="block text-sm font-medium text-text mb-2">
@@ -181,75 +220,85 @@ const Capture = () => {
               </div>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* Submit Button */}
         <div className="flex justify-end gap-4">
           {preview && (
-            <button
-              type="button"
+            <Button 
+              content='Clear' 
               onClick={handleClear}
-              className="px-6 py-2 rounded-lg border border-border text-text hover:border-accent transition-colors"
-            >
-              Clear
-            </button>
+            />
           )}
-          <button
-            type="submit"
-            disabled={!selectedFile || captureMutation.isPending}
-            className="px-6 py-2 rounded-lg bg-accent text-white hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed transition-opacity flex items-center gap-2"
-          >
-            {captureMutation.isPending ? (
-              <>
-                <svg
-                  className="animate-spin h-5 w-5"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                >
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  ></circle>
-                  <path
-                    className="opacity-75"
-                    fill="currentColor"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                  ></path>
-                </svg>
-                Processing...
-              </>
-            ) : (
-              'Capture & Extract'
-            )}
-          </button>
+
+          {!captureData &&
+            <Button 
+              content='Capture & Extract' 
+              type='submit' 
+              disabled={!selectedFile || isCaptureDataLoading}
+              isLoading={isCaptureDataLoading}
+              loadingContent='Processing...'
+              styleType='primary'
+            />
+          }
         </div>
 
         {/* Error Message */}
-        {captureMutation.isError && (
+        {isCaptureDataError && (
           <div className="rounded-lg border border-red-500/50 bg-red-500/10 p-4">
             <p className="text-sm text-red-500">
-              {captureMutation.error instanceof Error
-                ? captureMutation.error.message
+              {captureDataError instanceof Error
+                ? captureDataError.message
                 : 'An error occurred while processing the image'}
             </p>
           </div>
         )}
-
-        {/* Success Message */}
-        {captureMutation.isSuccess && captureMutation.data && (
-          <div className="rounded-lg border border-green-500/50 bg-green-500/10 p-4">
-            <p className="text-sm text-green-500 font-medium mb-2">Success!</p>
-            <pre className="text-xs text-text bg-card p-3 rounded overflow-auto max-h-96">
-              {JSON.stringify(captureMutation.data, null, 2)}
-            </pre>
-          </div>
-        )}
       </form>
+
+      {captureData && (
+        <Card size='xl'>
+          <Button 
+            content='Accept Words & Phrases' 
+            onClick={handleAcceptSelection}
+            isLoading={false}
+            styleType='primary'
+          />
+          <Spacer size='md' />
+          <div className='flex'>
+            <div className='w-full'>
+              <h1 className='text-2xl'>Words</h1>
+              <Spacer />
+              {captureData?.words?.map((word, index, arr) => {
+                return (
+                  <div onClick={()=>toggleAcceptedWord(word.text)} className={`${acceptedWords.includes(word.text) && "text-green-500"}`}>
+                    <Card muted>
+                      <div>{word?.text}</div>
+                      <small>{word?.translation[0]}</small>
+                    </Card>
+                    {index !== arr.length -1 && <Spacer />}
+                  </div>
+                )
+              })}
+            </div>
+            <Spacer size='md' />
+            <div className='w-full'>
+              <h1 className='text-2xl'>Phrases</h1>
+              <Spacer />
+              {captureData?.phrases?.map((phrase, index, arr) => {
+                return (
+                  <div onClick={()=>toggleAcceptedPhrases(phrase.text)} className={`${acceptedPhrases.includes(phrase.text) && "text-green-500"}`}>
+                  <Card muted>
+                    <div>{phrase?.text}</div>
+                    <small>{phrase?.translation[0]}</small>
+                  </Card>
+                  {index !== arr.length -1 && <Spacer />}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </Card>
+      )}
     </div>
   );
 };
