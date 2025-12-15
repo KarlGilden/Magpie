@@ -3,6 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
+import session from 'express-session';
+import { store } from './data/db';
 import { createDocumentAIService } from './services/documentai.service';
 import { DocumentAIConfig } from './types/documentai.types';
 import { OpenAIConfig } from './types/openai.types';
@@ -12,28 +15,29 @@ import { CaptureController } from './controllers/capture.controller';
 import { createOpenAIRoutes } from './routes/openai.routes';
 import { createDocumentAIRoutes } from './routes/documentai.routes';
 import { createCaptureRoutes } from './routes/capture.routes';
+import authRouter from './routes/auth.routes';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT: number = parseInt(process.env['PORT'] || '3000', 10);
+const PORT: string = process.env.PORT;
 
 // Initialize Document AI service
 const documentAIConfig: DocumentAIConfig = {
-  projectId: process.env['GOOGLE_CLOUD_PROJECT_ID'] || '',
-  location: process.env['GOOGLE_CLOUD_LOCATION'] || 'us',
-  processorId: process.env['GOOGLE_CLOUD_PROCESSOR_ID'] || '',
-  credentialsPath: process.env['GOOGLE_APPLICATION_CREDENTIALS'] || ''
+  projectId: process.env.GOOGLE_CLOUD_PROJECT_ID,
+  location: process.env.GOOGLE_CLOUD_LOCATION,
+  processorId: process.env.GOOGLE_CLOUD_PROCESSOR_ID,
+  credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS
 };
 
 const documentAIService = createDocumentAIService(documentAIConfig);
 
 // Initialize OpenAI service
 const openAIConfig: OpenAIConfig = {
-  apiKey: process.env['OPENAI_API_KEY'] || '',
-  model: process.env['OPENAI_MODEL'] || 'gpt-3.5-turbo',
-  organization: process.env['OPENAI_ORGANIZATION'] || ''
+  apiKey: process.env.OPENAI_API_KEY,
+  model: process.env.OPENAI_MODEL,
+  organization: process.env.OPENAI_ORGANIZATION
 };
 
 // Initialize controllers
@@ -47,7 +51,20 @@ app.use(cors()); // Enable CORS
 app.use(morgan('combined')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
-
+app.use(cookieParser());
+app.use(
+  session({
+    secret: process.env.SESSION_SECRET!,
+    cookie: {
+      httpOnly: true,
+      secure: false, //process.env.NODE_ENV === "production",
+      maxAge: 60 * 60 * 60 * 24, // 24 hr
+    },
+    store,
+    resave: false,
+    saveUninitialized: false,
+  }),
+);
 // Base routes
 app.get('/', (_req: Request, res: Response) => {
   res.json({
@@ -65,6 +82,7 @@ app.get('/health', (_req: Request, res: Response) => {
 });
 
 // API routes
+app.use('/api/auth', authRouter);
 app.use('/api/openai', createOpenAIRoutes(openAIController));
 app.use('/api/documentai', createDocumentAIRoutes(documentAIController));
 app.use('/api/capture', createCaptureRoutes(captureController));

@@ -35,11 +35,11 @@ export class OpenAIController {
         return;
       }
 
-      console.log(JSON.parse(result));
+      console.log(result);
 
       res.json({
         success: true,
-        data: JSON.parse(result),
+        data: result,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
