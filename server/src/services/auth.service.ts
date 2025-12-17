@@ -7,7 +7,7 @@ import { Credential, LoginRequest, RegisterRequest, User } from '../types/auth.t
 const register = async (req: RegisterRequest) => {
 
     if (!req.username || !req.password || !req.email) {
-        throw Error("Please enter all required fields");
+        throw new AppError("Please enter all required fields", 400);
     }
 
     const passwordHash = await bcrypt.hash(req.password, 12);
@@ -47,8 +47,7 @@ const register = async (req: RegisterRequest) => {
 
         return userId;
     }catch(error){
-        const sqlError = error as SQLError;
-        throw new AppError(sqlError.sqlMessage, 500)
+        throw new AppError("Something went wrong.", 500)
     }
 }
 
@@ -84,8 +83,11 @@ const login = async (req: LoginRequest) => {
     return { userId: user.id };
     
   } catch (err) {
-    console.error(err);
-    throw new AppError("Login failed", 401);
+    if (err instanceof AppError) {
+      throw err;
+    }
+
+    throw new AppError("Login failed", 500);
   }
 };
 
@@ -102,7 +104,6 @@ export const requireAuth = async (
 
     next();
   } catch (err) {
-    console.error(err);
     throw new AppError("Auth check failed", 401);
   }
 }

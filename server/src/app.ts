@@ -16,6 +16,7 @@ import { createOpenAIRoutes } from './routes/openai.routes';
 import { createDocumentAIRoutes } from './routes/documentai.routes';
 import { createCaptureRoutes } from './routes/capture.routes';
 import authRouter from './routes/auth.routes';
+import { errorHandler } from './middleware/error.middleware';
 
 // Load environment variables
 dotenv.config();
@@ -47,7 +48,10 @@ const captureController = new CaptureController(documentAIService.processDocumen
 
 // Middleware
 app.use(helmet()); // Security headers
-app.use(cors()); // Enable CORS
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true,    
+})); // Enable CORS
 app.use(morgan('combined')); // Logging
 app.use(express.json()); // Parse JSON bodies
 app.use(express.urlencoded({ extended: true })); // Parse URL-encoded bodies
@@ -65,6 +69,7 @@ app.use(
     saveUninitialized: false,
   }),
 );
+
 // Base routes
 app.get('/', (_req: Request, res: Response) => {
   res.json({
@@ -96,13 +101,7 @@ app.use('*', (req: Request, res: Response) => {
 });
 
 // Error handler
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  console.error(err.stack);
-  res.status(500).json({
-    error: 'Something went wrong!',
-    message: process.env['NODE_ENV'] === 'development' ? err.message : 'Internal server error'
-  });
-});
+app.use(errorHandler);
 
 // Start server
 app.listen(PORT, () => {

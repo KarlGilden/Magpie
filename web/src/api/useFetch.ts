@@ -37,6 +37,7 @@ export const useFetch = () => {
     const fetchOptions: RequestInit = {
       method,
       headers: fetchHeaders,
+      credentials: "include"
     };
 
     // Only include body if it exists
