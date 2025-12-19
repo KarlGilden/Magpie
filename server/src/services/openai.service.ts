@@ -2,22 +2,26 @@ import OpenAI from 'openai';
 import {
   OpenAIConfig,
   ServiceStatus,
-  ValidationResult,
-  ProcessTextFunction,
-  GetStatusFunction,
-  ValidateConfigFunction
+  ValidationResult
 } from '../types/openai.types';
 import { WordCaptureResponse } from '../types/app.types';
 
 // Global client instance
 let client: OpenAI | null = null;
 
+// Config stored at module level
+let config: OpenAIConfig | null = null;
+
 /**
  * Initialize the OpenAI client
  */
-const initializeClient = (config: OpenAIConfig): OpenAI => {
+const initializeClient = (): OpenAI => {
   if (client) {
     return client;
+  }
+
+  if (!config) {
+    throw new Error('OpenAI service not initialized. Call initialize() first.');
   }
 
   if (!config.apiKey) {
@@ -32,16 +36,23 @@ const initializeClient = (config: OpenAIConfig): OpenAI => {
 };
 
 /**
+ * Initialize OpenAI service with configuration
+ */
+const initialize = (openAIConfig: OpenAIConfig): void => {
+  config = openAIConfig;
+};
+
+/**
  * Validate OpenAI configuration
  */
-export const validateConfig: ValidateConfigFunction = (config: OpenAIConfig): ValidationResult => {
+const validateConfig = (openAIConfig: OpenAIConfig): ValidationResult => {
   const errors: string[] = [];
 
-  if (!config.apiKey) {
+  if (!openAIConfig.apiKey) {
     errors.push('API key is required');
   }
 
-  if (!config.model) {
+  if (!openAIConfig.model) {
     errors.push('Model is required');
   }
 
@@ -54,7 +65,15 @@ export const validateConfig: ValidateConfigFunction = (config: OpenAIConfig): Va
 /**
  * Get service status
  */
-export const getStatus: GetStatusFunction = async (config: OpenAIConfig): Promise<ServiceStatus> => {
+const getStatus = async (): Promise<ServiceStatus> => {
+  if (!config) {
+    return {
+      status: 'error',
+      message: 'OpenAI service not initialized',
+      timestamp: new Date().toISOString()
+    };
+  }
+
   try {
     const validation = validateConfig(config);
     if (!validation.isValid) {
@@ -66,7 +85,7 @@ export const getStatus: GetStatusFunction = async (config: OpenAIConfig): Promis
     }
 
     // Test the connection by making a simple request
-    const openai = initializeClient(config);
+    const openai = initializeClient();
     await openai.models.list();
 
     return {
@@ -86,15 +105,18 @@ export const getStatus: GetStatusFunction = async (config: OpenAIConfig): Promis
 /**
  * Process text using OpenAI Chat Completions API
  */
-export const processText: ProcessTextFunction = async (
+const processText = async (
   text: string,
-  language: string,
-  config: OpenAIConfig
+  language: string
 ): Promise<WordCaptureResponse | undefined> => {
+  if (!config) {
+    throw new Error('OpenAI service not initialized. Call initialize() first.');
+  }
+
   try {
 
     // Initialize client
-    const openai = initializeClient(config);
+    const openai = initializeClient();
 
     const schema = {
       type: "object",
@@ -163,6 +185,13 @@ export const processText: ProcessTextFunction = async (
   } catch (error) {
     throw new Error(`OpenAI API error: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
+};
+
+export const openAIService = {
+  initialize,
+  processText,
+  getStatus,
+  validateConfig: () => config ? validateConfig(config) : { isValid: false, errors: ['Service not initialized'] }
 };
 
 /**

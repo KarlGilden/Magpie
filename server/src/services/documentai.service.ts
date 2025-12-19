@@ -5,21 +5,25 @@ import {
   ProcessDocumentRequest,
   ProcessDocumentResponse,
   ServiceStatus,
-  ValidationResult,
-  ProcessDocumentFunction,
-  GetStatusFunction,
-  ValidateConfigFunction
+  ValidationResult
 } from '../types/documentai.types';
 
 // Global client instance
 let client: DocumentProcessorServiceClient | null = null;
 
+// Config stored at module level
+let config: DocumentAIConfig | null = null;
+
 /**
  * Initialize the Document AI client
  */
-const initializeClient = (config: DocumentAIConfig): DocumentProcessorServiceClient => {
+const initializeClient = (): DocumentProcessorServiceClient => {
   if (client) {
     return client;
+  }
+
+  if (!config) {
+    throw new Error('DocumentAI service not initialized. Call initialize() first.');
   }
 
   // Set credentials if provided
@@ -32,20 +36,27 @@ const initializeClient = (config: DocumentAIConfig): DocumentProcessorServiceCli
 };
 
 /**
+ * Initialize DocumentAI service with configuration
+ */
+const initialize = (documentAIConfig: DocumentAIConfig): void => {
+  config = documentAIConfig;
+};
+
+/**
  * Validate Document AI configuration
  */
-export const validateConfig: ValidateConfigFunction = (config: DocumentAIConfig): ValidationResult => {
+const validateConfig = (documentAIConfig: DocumentAIConfig): ValidationResult => {
   const errors: string[] = [];
 
-  if (!config.projectId) {
+  if (!documentAIConfig.projectId) {
     errors.push('Project ID is required');
   }
 
-  if (!config.location) {
+  if (!documentAIConfig.location) {
     errors.push('Location is required');
   }
 
-  if (!config.processorId) {
+  if (!documentAIConfig.processorId) {
     errors.push('Processor ID is required');
   }
 
@@ -135,103 +146,123 @@ const calculateAverageConfidence = (entities: any[]): number => {
 /**
  * Process an image using Google Document AI
  */
-export const processDocument = (config: DocumentAIConfig): ProcessDocumentFunction => {
-  return async (file: Express.Multer.File): Promise<DocumentAIResponse> => {
-    const startTime = Date.now();
+const processDocument = async (file: Express.Multer.File): Promise<DocumentAIResponse> => {
+  if (!config) {
+    throw new Error('DocumentAI service not initialized. Call initialize() first.');
+  }
+
+  const startTime = Date.now();
+  
+  try {
+    // Validate image file
+    validateFile(file);
+
+    // Initialize client
+    const documentClient = initializeClient();
+
+    // Prepare the request
+    const request: ProcessDocumentRequest = {
+      name: `projects/${config.projectId}/locations/${config.location}/processors/${config.processorId}`,
+      rawDocument: {
+        content: file.buffer.toString('base64'),
+        mimeType: file.mimetype
+      }
+    };
+    console.log("LOG: ", request)
+    // Process the image
+    const [result] = await documentClient.processDocument(request);
+    const response = result as ProcessDocumentResponse;
+
+    // Extract text and entities
+    const document = response.document;
+    const text = document.text || '';
     
-    try {
-      // Validate image file
-      validateFile(file);
+    // Extract entities (typically from the first page for images)
+    const entities = extractEntities(document.pages || []);
+    const pages = extractPages(document.pages || []);
+    const confidence = calculateAverageConfidence(entities);
 
-      // Initialize client
-      const documentClient = initializeClient(config);
+    const processingTime = Date.now() - startTime;
 
-      // Prepare the request
-      const request: ProcessDocumentRequest = {
-        name: `projects/${config.projectId}/locations/${config.location}/processors/${config.processorId}`,
-        rawDocument: {
-          content: file.buffer.toString('base64'),
-          mimeType: file.mimetype
-        }
-      };
-      console.log("LOG: ", request)
-      // Process the image
-      const [result] = await documentClient.processDocument(request);
-      const response = result as ProcessDocumentResponse;
+    return {
+      success: true,
+      data: {
+        text,
+        entities,
+        pages,
+        confidence
+      },
+      metadata: {
+        processorId: config.processorId,
+        location: config.location,
+        processingTime
+      }
+    };
 
-      // Extract text and entities
-      const document = response.document;
-      const text = document.text || '';
-      
-      // Extract entities (typically from the first page for images)
-      const entities = extractEntities(document.pages || []);
-      const pages = extractPages(document.pages || []);
-      const confidence = calculateAverageConfidence(entities);
-
-      const processingTime = Date.now() - startTime;
-
-      return {
-        success: true,
-        data: {
-          text,
-          entities,
-          pages,
-          confidence
-        },
-        metadata: {
-          processorId: config.processorId,
-          location: config.location,
-          processingTime
-        }
-      };
-
-    } catch (error) {
-      console.error('Image processing error:', error);
-      
+  } catch (error) {
+    console.error('Image processing error:', error);
+    
+    if (!config) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Unknown error occurred during image processing',
+        error: 'DocumentAI service not initialized',
         metadata: {
-          processorId: config.processorId,
-          location: config.location,
+          processorId: '',
+          location: '',
           processingTime: Date.now() - startTime
         }
       };
     }
-  };
+
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error occurred during image processing',
+      metadata: {
+        processorId: config.processorId,
+        location: config.location,
+        processingTime: Date.now() - startTime
+      }
+    };
+  }
 };
 
 /**
  * Get service status
  */
-export const getStatus = (config: DocumentAIConfig): GetStatusFunction => {
-  return async (): Promise<ServiceStatus> => {
-    try {
-      const validation = validateConfig(config);
-      
-      return {
-        status: validation.isValid ? 'ready' : 'configuration_error',
-        config,
-        errors: validation.errors
-      };
-    } catch (error) {
-      console.error('Status check error:', error);
-      return {
-        status: 'error',
-        config,
-        errors: [error instanceof Error ? error.message : 'Unknown error']
-      };
-    }
-  };
+const getStatus = async (): Promise<ServiceStatus> => {
+  if (!config) {
+    return {
+      status: 'error',
+      config: {
+        projectId: '',
+        location: '',
+        processorId: ''
+      },
+      errors: ['DocumentAI service not initialized']
+    };
+  }
+
+  try {
+    const validation = validateConfig(config);
+    
+    return {
+      status: validation.isValid ? 'ready' : 'configuration_error',
+      config,
+      errors: validation.errors
+    };
+  } catch (error) {
+    console.error('Status check error:', error);
+    return {
+      status: 'error',
+      config,
+      errors: [error instanceof Error ? error.message : 'Unknown error']
+    };
+  }
 };
 
-/**
- * Create Document AI service functions
- */
-export const createDocumentAIService = (config: DocumentAIConfig) => {
-  return {
-    processDocument: processDocument(config),
-    getStatus: getStatus(config),
-    validateConfig: () => validateConfig(config)
-  };
+export const documentAIService = {
+  initialize,
+  processDocument,
+  getStatus,
+  validateConfig: () => config ? validateConfig(config) : { isValid: false, errors: ['Service not initialized'] }
 };

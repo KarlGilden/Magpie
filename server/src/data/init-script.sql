@@ -48,3 +48,48 @@ CREATE TABLE credentials (
 
     FOREIGN KEY (provider_id) REFERENCES auth_providers(id) ON DELETE CASCADE
 );
+
+CREATE TABLE phrases (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,
+    language_id INT NOT NULL,
+
+    -- Front / back
+    phrase VARCHAR(512) NOT NULL,
+    translation VARCHAR(800) NOT NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (language_id) REFERENCES languages(id),
+    FOREIGN KEY (user_id) REFERENCES users(id),
+
+    UNIQUE (user_id, language_id, phrase)
+);
+
+CREATE TABLE languages (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    code CHAR(2) NOT NULL,
+    name VARHAR(120) NOT NULL
+)
+
+CREATE TABLE phrase_cards (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    phrase_id INT NOT NULL,
+    user_id INT NOT NULL,
+
+    -- SRS state
+    interval_days INT NOT NULL DEFAULT 0,
+    ease_factor DECIMAL(4,2) NOT NULL DEFAULT 2.50,
+    repetitions INT NOT NULL DEFAULT 0,
+    lapses INT NOT NULL DEFAULT 0,
+
+    due_at DATE NOT NULL,
+    last_reviewed_at TIMESTAMP NULL,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (phrase_id) REFERENCES phrases(id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+
+    UNIQUE (phrase_id, user_id)
+);

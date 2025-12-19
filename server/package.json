@@ -2,10 +2,10 @@
   "name": "wordcapture",
   "version": "1.0.0",
   "description": "A Word Capture application built with Express.js and TypeScript",
-  "main": "dist/app.js",
+  "main": "dist/server.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/app.js",
+    "start": "node dist/server.js",
     "dev": "ts-node-dev --respawn --transpile-only src/app.ts",
     "dev:build": "tsc && nodemon dist/app.js",
     "clean": "rimraf dist",

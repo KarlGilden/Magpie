@@ -1,23 +1,13 @@
 import { Router } from 'express';
-import { OpenAIController } from '../controllers/openai.controller';
+import { openAIController } from '../controllers/openai.controller';
 
-/**
- * OpenAI Routes
- * Defines all routes for OpenAI-related endpoints
- */
-export const createOpenAIRoutes = (controller: OpenAIController): Router => {
-  const router = Router();
+const openAIRouter = Router();
 
-  // POST /api/openai/chat - Process text and generate word/phrase translations
-  router.post('/chat', (req, res) => {
-    controller.chat(req, res);
-  });
+// POST /api/openai/chat - Process text and generate word/phrase translations
+openAIRouter.post('/chat', openAIController.chat);
 
-  // GET /api/openai/status - Get OpenAI service status
-  router.get('/status', (req, res) => {
-    controller.status(req, res);
-  });
+// GET /api/openai/status - Get OpenAI service status
+openAIRouter.get('/status', openAIController.status);
 
-  return router;
-};
+export default openAIRouter;
 

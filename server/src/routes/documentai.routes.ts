@@ -1,19 +1,11 @@
-import { Request, Response, Router } from 'express';
-import { DocumentAIController } from '../controllers/documentai.controller';
+import { Router } from 'express';
+import { documentAIController } from '../controllers/documentai.controller';
 import { uploadSingle, handleUploadError } from '../middleware/upload.middleware';
 
-/**
- * DocumentAI Routes
- * Defines all routes for DocumentAI-related endpoints
- */
-export const createDocumentAIRoutes = (controller: DocumentAIController): Router => {
-  const router = Router();
+const documentAIRouter = Router();
 
-  // POST /api/process-image - Process an image using Google Document AI
-  router.post('/process-image', uploadSingle, handleUploadError, (req: Request, res: Response) => {
-    controller.processImage(req, res);
-  });
+// POST /api/process-image - Process an image using Google Document AI
+documentAIRouter.post('/process-image', uploadSingle, handleUploadError, documentAIController.processImage);
 
-  return router;
-};
+export default documentAIRouter;
 

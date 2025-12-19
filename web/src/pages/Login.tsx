@@ -18,8 +18,8 @@ const Login = () => {
     e.preventDefault();
     setError(null);
 
-    const result = await loginMutation.mutateAsync({ email, password }, {
-      onSuccess: () => {
+    await loginMutation.mutateAsync({ email, password }, {
+      onSuccess: (result) => {
         signin(result.id);
         navigate(from, { replace: true });
       },

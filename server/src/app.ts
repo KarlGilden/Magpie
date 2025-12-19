@@ -1,4 +1,4 @@
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
@@ -6,23 +6,20 @@ import dotenv from 'dotenv';
 import cookieParser from 'cookie-parser';
 import session from 'express-session';
 import { store } from './data/db';
-import { createDocumentAIService } from './services/documentai.service';
+import { documentAIService } from './services/documentai.service';
+import { openAIService } from './services/openai.service';
 import { DocumentAIConfig } from './types/documentai.types';
 import { OpenAIConfig } from './types/openai.types';
-import { OpenAIController } from './controllers/openai.controller';
-import { DocumentAIController } from './controllers/documentai.controller';
-import { CaptureController } from './controllers/capture.controller';
-import { createOpenAIRoutes } from './routes/openai.routes';
-import { createDocumentAIRoutes } from './routes/documentai.routes';
-import { createCaptureRoutes } from './routes/capture.routes';
 import authRouter from './routes/auth.routes';
 import { errorHandler } from './middleware/error.middleware';
+import openAIRouter from './routes/openai.routes';
+import documentAIRouter from './routes/documentai.routes';
+import captureRouter from './routes/capture.routes';
 
 // Load environment variables
 dotenv.config();
 
 const app = express();
-const PORT: string = process.env.PORT;
 
 // Initialize Document AI service
 const documentAIConfig: DocumentAIConfig = {
@@ -32,7 +29,7 @@ const documentAIConfig: DocumentAIConfig = {
   credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS
 };
 
-const documentAIService = createDocumentAIService(documentAIConfig);
+documentAIService.initialize(documentAIConfig);
 
 // Initialize OpenAI service
 const openAIConfig: OpenAIConfig = {
@@ -41,10 +38,7 @@ const openAIConfig: OpenAIConfig = {
   organization: process.env.OPENAI_ORGANIZATION
 };
 
-// Initialize controllers
-const openAIController = new OpenAIController(openAIConfig);
-const documentAIController = new DocumentAIController(documentAIService.processDocument);
-const captureController = new CaptureController(documentAIService.processDocument, openAIConfig);
+openAIService.initialize(openAIConfig);
 
 // Middleware
 app.use(helmet()); // Security headers
@@ -88,9 +82,9 @@ app.get('/health', (_req: Request, res: Response) => {
 
 // API routes
 app.use('/api/auth', authRouter);
-app.use('/api/openai', createOpenAIRoutes(openAIController));
-app.use('/api/documentai', createDocumentAIRoutes(documentAIController));
-app.use('/api/capture', createCaptureRoutes(captureController));
+app.use('/api/openai', openAIRouter);
+app.use('/api/documentai', documentAIRouter);
+app.use('/api/capture', captureRouter);
 
 // 404 handler
 app.use('*', (req: Request, res: Response) => {
@@ -102,11 +96,5 @@ app.use('*', (req: Request, res: Response) => {
 
 // Error handler
 app.use(errorHandler);
-
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
-  console.log(`📊 Health check available at http://localhost:${PORT}/health`);
-});
 
 export default app;
